@@ -1,7 +1,7 @@
 import _ from 'lodash';
-import bitcore from '@abcpros/bitcore-lib-xec';
 import { Utxo } from 'chronik-client';
-
+// const bitcore = require('@abcpros/bitcore-lib-xec');
+import bitcore from '@abcpros/bitcore-lib-xec';
 export default class PostageTransaction {
   static MIN_BYTES_INPUT = 148
   static LOKAD_ID_INDEX = 1
@@ -14,14 +14,25 @@ export default class PostageTransaction {
   constructor() {
   }
 
-  splitUtxosIntoStamps(address: string, weight: number, wif: string, utxos: Utxo[]): bitcore.Transaction {
-    const addr: bitcore.Address = bitcore.Address.from(address);
+  splitUtxosIntoStamps(
+    sourceAddress: string,
+    postOfficeAddress: string,
+    weight: number,
+    wif: string,
+    utxos: Array<Utxo & { outputScript: string }>,
+  ) {
+
+    const sourceAddr = bitcore.Address.fromString(sourceAddress);
+    const addr = bitcore.Address.fromString(postOfficeAddress);
+
+    const privkey = bitcore.PrivateKey.fromWIF(wif);
 
     const tx = new bitcore.Transaction()
       .from(utxos.map(u => new bitcore.Transaction.UnspentOutput({
         txid: u.outpoint.txid,
         vout: u.outpoint.outIdx,
-        satoshis: _.toNumber(u.value)
+        satoshis: _.toNumber(u.value),
+        script: u.outputScript
       })));
     tx.feePerByte(1);
 
@@ -47,12 +58,11 @@ export default class PostageTransaction {
         fee = tx._estimateSize();
         // @ts-ignore
         if (tx._getUnspentValue() - fee > bitcore.Transaction.DUST_AMOUNT + PostageTransaction.XEC_P2PKH_OUTPUT_SIZE) {
-          tx.change(addr);
+          tx.change(sourceAddr);
         }
       }
     }
 
-    const privkey = bitcore.PrivateKey.fromWIF(wif);
     tx.sign(privkey);
 
     return tx;

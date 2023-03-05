@@ -1,0 +1,1 @@
+declare module '@abcpros/bitcore-lib-xec';
